@@ -221,7 +221,7 @@ def agent_pi():
         # policy to agent
         agents = Agent.query.all()
         agent_list = [agent.to_dict() for agent in agents]
-        threading.Thread(target=policy_issued, args=(agent_list,)).start()
+        threading.Thread(target=policy_issued, args=(agent_list,policy,)).start()
     except Exception as e:
         print(e)
         return JsonResponse.error()
@@ -229,7 +229,7 @@ def agent_pi():
     return JsonResponse.success()
 
 
-def policy_issued(agents):
+def policy_issued(agents, policy):
     for item in agents:
         try:
             ip = item['agent_ip']
@@ -237,7 +237,7 @@ def policy_issued(agents):
             # 通知 agent
             url = f"http://{ip}:{AGENT_PORT}{POLICY_RECEIVE_URL}"
             print('---policy receive url: ', url)
-            response = requests.post(url, json={})
+            response = requests.post(url, json={'policy': policy})
             # print(response.json())
             result = response.json()
             code = result['code']
