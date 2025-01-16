@@ -10,6 +10,11 @@ app = Flask(__name__)
 
 CORS(app)  # 全局启用CORS，允许所有来源
 
+DEREGISTER_URL = '/deregister'  # agent侧提供的注销接口
+COLLECT_CONTROL_URL = '/cc'  # agent侧提供的采集启停接口
+POLICY_RECEIVE_URL = '/receive'  # agent侧提供的采集策略接收接口
+AGENT_PORT = 7777  # agent侧端口
+
 class JsonResponse:
     @staticmethod
     def success(data=None, code=200, msg='success'):
@@ -126,7 +131,8 @@ def agent_delete():
         ip = agent_dict['agent_ip']
         port = 9900
         # 通知 agent
-        url = f"http://{ip}:{port}/deregister"
+        url = f"http://{ip}:{AGENT_PORT}{DEREGISTER_URL}"
+        print('---deregister url: ', url)
         response = requests.post(url, json={})
         print(response.json())
         result = response.json()
@@ -189,7 +195,8 @@ def collect_control(agents, data):
             ip = item['agent_ip']
             port = 9900
             # 通知 agent
-            url = f"http://{ip}:{port}/deregister"
+            url = f"http://{ip}:{AGENT_PORT}{COLLECT_CONTROL_URL}"
+            print('---collect control url: ', url)
             response = requests.post(url, json=param)
             # print(response.json())
             result = response.json()
@@ -228,7 +235,8 @@ def policy_issued(agents):
             ip = item['agent_ip']
             port = 9900
             # 通知 agent
-            url = f"http://{ip}:{port}/deregister"
+            url = f"http://{ip}:{AGENT_PORT}{POLICY_RECEIVE_URL}"
+            print('---policy receive url: ', url)
             response = requests.post(url, json={})
             # print(response.json())
             result = response.json()

@@ -8,28 +8,68 @@ import org.apache.flume.sink.AbstractSink;
 import java.sql.*;
 import java.time.LocalDateTime;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 
 public class SyslogUDPSink extends AbstractSink implements Configurable {
+
+    private Logger log = LoggerFactory.getLogger(SyslogUDPSink.class);
 
     private String jdbcUrl;
     private String user;
     private String password;
+
+    private PreparedStatement preparedStatement;
+    private Connection conn;
+
 
     @Override
     public void configure(Context context) {
         jdbcUrl = context.getString("jdbcUrl");
         user = context.getString("user");
         password = context.getString("password");
+        log.info("--------- jdbcUrl: " + jdbcUrl);
+        log.info("--------- user: " + user);
+        log.info("--------- password: " + password);
+    }
+
+    @Override
+    public void start() {
+        super.start();
+        try {
+            conn = DriverManager.getConnection(jdbcUrl, user, password);
+//            conn.setAutoCommit(false);
+            preparedStatement = conn.prepareStatement("insert into t_log_msg(log_msg, create_time) values(?,?)");
+        } catch (SQLException e) {
+            e.printStackTrace();
+            System.exit(1);
+        }
+    }
+
+    @Override
+    public void stop() {
+        super.stop();
+        if (preparedStatement != null) {
+            try {
+                preparedStatement.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
+
+        if (conn != null) {
+            try {
+                conn.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
     @Override
     public Status process() throws EventDeliveryException {
-        System.out.println("--------- jdbcUrl: " + jdbcUrl);
-        System.out.println("--------- user: " + user);
-        System.out.println("--------- password: " + password);
         Channel channel = getChannel();
-        Connection connection = null;
-        PreparedStatement statement = null;
         Transaction txn = channel.getTransaction();
         try {
             txn.begin();  // 开启事务
@@ -37,37 +77,20 @@ public class SyslogUDPSink extends AbstractSink implements Configurable {
             if (event != null) {
 //                String body = event.getHeaders().get("message");
                 String data = new String(event.getBody());
-                connection = DriverManager.getConnection(jdbcUrl, user, password);
-                statement = connection.prepareStatement("insert into test(content, create_time) values(?,?)");
-                saveToMysql(data, statement);
+                saveToMysql(data, preparedStatement);
             }
             txn.commit();  // 提交事务
             return Status.READY;
-        } catch (Throwable tx) {
+        } catch (Exception e) {
             try {
                 txn.rollback();
             } catch (Exception ex) {
-                System.out.println("exception in rollback." + ex);
+                log.error("Exception in rollback. Rollback might not have been.successful." + ex);
             }
-            System.out.println("transaction rolled back." + tx);
+            log.error("Failed to commit transaction.Transaction rolled back." + e);
             return Status.BACKOFF;
         } finally {
             txn.close();
-
-            if (statement != null) {
-                try {
-                    statement.close();
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-            }
-            if (connection != null) {
-                try {
-                    connection.close();
-                } catch (SQLException e) {
-                    e.printStackTrace();
-                }
-            }
         }
     }
 
