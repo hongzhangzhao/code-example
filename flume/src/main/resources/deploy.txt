@@ -1,0 +1,5 @@
+在 Execute Maven Goal 下, 执行 mvn assembly:assembly 打包
+
+启动程序:
+bin/flume-ng agent -c conf -f flumeDspLog.conf -n collector -Dflume.root.logger=DEBUG,console
+

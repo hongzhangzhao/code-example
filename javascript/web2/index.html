@@ -1,0 +1,373 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>表格操作</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        table,
+        th,
+        td {
+            border: 1px solid black;
+        }
+
+        th,
+        td {
+            padding: 8px;
+            text-align: center;
+        }
+
+        .button {
+            margin: 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        .pagination {
+            display: flex;
+            justify-content: center;
+            margin-top: 10px;
+        }
+
+        .pagination button {
+            margin: 0 5px;
+            padding: 5px 10px;
+            cursor: pointer;
+        }
+
+        .popup {
+            display: none;
+            position: fixed;
+            z-index: 1;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            background-color: rgba(0, 0, 0, 0.4);
+        }
+
+        .popup-content {
+            background-color: #fefefe;
+            margin: 15% auto;
+            padding: 20px;
+            border: 1px solid #888;
+            width: 80%;
+            max-width: 400px;
+        }
+
+        .close {
+            color: #aaa;
+            float: right;
+            font-size: 28px;
+            font-weight: bold;
+        }
+
+        .close:hover,
+        .close:focus {
+            color: black;
+            text-decoration: none;
+            cursor: pointer;
+        }
+
+        input {
+            width: 100%;
+            padding: 12px 20px;
+            margin: 8px 0;
+            display: inline-block;
+            border: 1px solid #ccc;
+            box-sizing: border-box;
+        }
+
+        button {
+            background-color: #4CAF50;
+            color: white;
+            padding: 14px 20px;
+            margin: 8px 0;
+            border: none;
+            cursor: pointer;
+            /* width: 100%; */
+        }
+
+        #openPopup {
+            width: 100%;
+        }
+
+        .openPopup {
+            width: 100%;
+        }
+
+        button:hover {
+            opacity: 0.8;
+        }
+    </style>
+</head>
+
+<body>
+<!--     <button id="openPopup">注册</button>
+    <div id="popup" class="popup">
+        <div class="popup-content">
+            <span class="close" id="closePopup">&times;</span>
+            <form id="form">
+                <label for="name">唯一标识:</label>
+                <input type="text" id="idInput" required placeholder="唯一标识">
+                <label for="ip">IP 地址:</label>
+                <input type="text" id="ip" name="ip" required placeholder="IP地址">
+                <label for="name">组名:</label>
+                <input type="text" id="genderInput" required placeholder="组名">
+                <button type="submit" class="openPopup" onclick="registerRow()">注册</button>
+            </form>
+        </div>
+    </div> -->
+    <button id="openPopup">采集启停</button>
+    <div id="popup" class="popup">
+        <div class="popup-content">
+            <span class="close" id="closePopup">&times;</span>
+            <form id="form">
+                <input type="checkbox" id="idInput"> 环境<br>
+                <input type="checkbox" id="ip"> 日志<br>
+                <input type="checkbox" id="genderInput"> 流量<br>
+                <button type="submit" class="openPopup" onclick="registerRow()">确定</button>
+            </form>
+        </div>
+    </div>
+    <table id="dataTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>代理标识</th>
+                <th>代理IP</th>
+                <th>代理状态</th>
+                <th>代理注册时间</th>
+                <th>操作</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+    <script src="./jquery.js"></script>
+    <script>
+        let currentPage = 1;
+        let pageSize = 5;
+        var dataid = ''
+        // var url = 'http://127.0.0.1:5000'
+        var url = 'http://192.168.3.57:5000'
+        // 获取数据
+        function fetchData(page) {
+            jQuery.ajax({
+                url: url + '/api/agent/list',
+                type: 'get',
+                headers: {
+                    "content-type": 'application/json',
+                },
+                data: {
+
+                },
+                success: function (response) {
+                    let paginatedData = response.data;
+                    let table = document.getElementById('dataTable').getElementsByTagName('tbody')[0];
+                    table.innerHTML = '';
+                    paginatedData.forEach(function (item) {
+                        var newRow = document.createElement('tr');
+                        newRow.innerHTML = `
+                            <td>${item.id}</td>
+                            <td>${item.agent_identifier}</td>
+                            <td>${item.agent_ip}</td>
+                            <td>${item.agent_status == 'online' ? '运行' : '停止'}</td>
+                            <td>${item.create_time}</td>
+                            <td><button class="button" onclick="startRow(${item.id})">注销</button></td>
+                        `;
+                        table.appendChild(newRow);
+                    });
+                    // updatePagination(response.length);
+                },
+                error: function (error) {
+                    alert('请求数据出错，请联系管理员')
+                }
+            });
+        }
+
+        // 分页
+        function updatePagination(totalItems) {
+            let totalPages = Math.ceil(totalItems / pageSize);
+            document.getElementById('totalPages').innerText = totalPages;
+            document.getElementById('currentPage').innerText = currentPage;
+        }
+        document.getElementById('openPopup').onclick = function () {
+            document.getElementById('popup').style.display = 'block';
+        };
+
+        document.getElementById('closePopup').onclick = function () {
+            document.getElementById('popup').style.display = 'none';
+        };
+
+        window.onclick = function (event) {
+            if (event.target == document.getElementById('popup')) {
+                document.getElementById('popup').style.display = 'none';
+                let identifier = document.getElementById('idInput').value = '';
+                let ip = document.getElementById('ip').value = '';
+                let group = document.getElementById('genderInput').value = '';
+                dataid = ''
+            }
+        };
+
+
+
+        function validateIP(ip) {
+            if (/^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)$/.test(ip)) {
+                return true;
+            }
+            return false;
+        }
+
+        // 采集启停
+        function registerRow() {
+            let identifier = document.getElementById('idInput').checked;
+            let ip = document.getElementById('ip').checked;
+            let group = document.getElementById('genderInput').checked;
+
+            document.getElementById('form').onsubmit = function (event) {
+                event.preventDefault();
+                // const ips = document.getElementById('ip').value;
+                // if (!validateIP(ips)) {
+                //     alert('请输入有效的 IP 地址');
+                //     return;
+                // }
+                jQuery.ajax({
+                    url: url + '/api/agent/collect/control',
+                    type: 'post',
+                    headers: {
+                        "content-type": 'application/json',
+                    },
+                    data: JSON.stringify({
+                        log: identifier,
+                        environment: ip,
+                        network: group
+                    }),
+                    success: function (response) {
+                        if (response.code == 200) {
+                            // 这里可以添加其他表单元素的验证逻辑
+                            alert('操作成功');
+                            // 可在此处添加发送表单数据的逻辑，如使用 fetch 或 XMLHttpRequest 发送到服务器
+                            document.getElementById('popup').style.display = 'none';
+                        } else {}
+                        fetchData()
+                    },
+                    error: function (error) {
+                        alert('请求数据出错，请联系管理员')
+                    }
+                });
+            };
+        }
+
+        // 启动
+        function startRow(id) {
+            jQuery.ajax({
+                url: url + '/api/agent/delete',
+                type: 'get',
+                headers: {
+                    "content-type": 'application/json',
+                },
+                data: {
+                    id: id
+                },
+                success: function (response) {
+                    if (response.code == 200) {
+                        alert('注销成功')
+                    } else {}
+                    fetchData()
+                },
+                error: function (error) {
+                    alert('请求数据出错，请联系管理员')
+                }
+            });
+        }
+
+        // 停止
+        function stopRow(id) {
+            jQuery.ajax({
+                url: url + '/api/agent/stop',
+                type: 'get',
+                headers: {
+                    "content-type": 'application/json',
+                },
+                data: {
+                    agent_id: id
+                },
+                success: function (response) {
+                    if (response.code == 200) {
+                        alert('停止成功')
+                    } else {
+
+                    }
+                    fetchData()
+                },
+                error: function (error) {
+                    alert('请求数据出错，请联系管理员')
+                }
+            });
+        }
+
+        // 编辑
+        function updateRow(id) {
+            jQuery.ajax({
+                url: url + '/api/agent/get',
+                type: 'get',
+                headers: {
+                    "content-type": 'application/json',
+                },
+                data: {
+                    agent_id: id
+                },
+                success: function (response) {
+                    dataid = response.data.id
+                    document.getElementById('idInput').value = response.data.agent_identifier;
+                    document.getElementById('ip').value = response.data.agent_ip;
+                    document.getElementById('genderInput').value = response.data.agent_group;
+                    document.getElementById('popup').style.display = 'block';
+                    fetchData()
+                },
+                error: function (error) {
+                    alert('请求数据出错，请联系管理员')
+                }
+            });
+        }
+
+        function prevPage() {
+            if (currentPage > 1) {
+                currentPage--;
+                fetchData(currentPage);
+            }
+        }
+
+        function nextPage() {
+            jQuery.ajax({
+                url: '/api/data',
+                type: 'GET',
+                async: false,
+                success: function (response) {
+                    let totalPages = Math.ceil(response.length / pageSize);
+                    if (currentPage < totalPages) {
+                        currentPage++;
+                        fetchData(currentPage);
+                    }
+                },
+                error: function (error) {
+                    console.error("请求数据出错:", error);
+                }
+            });
+        }
+
+        jQuery(document).ready(function () {
+            fetchData(currentPage);
+        });
+    </script>
+</body>
+
+</html>
